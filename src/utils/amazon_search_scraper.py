@@ -1,10 +1,14 @@
 import logging
+from pprint import pprint
+import re
 from selenium.common.exceptions import TimeoutException
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
+
+from models.price_model import Price
 
 BASE_URL = "https://www.amazon.es"
 
@@ -101,3 +105,31 @@ def scrap_search_page(search_item: str, num_items: int = 10) -> list:
         return items
     except Exception as e:
         raise e
+
+
+def scrap_amazon_url(url: str):
+    driver = webdriver.Chrome()
+    driver.get(url)
+    html_content = driver.page_source
+    driver.quit()
+    return html_content
+
+
+def amazon_price_scraper(html_content: str):
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    current_price = soup.find("span", class_="a-offscreen")
+    current_price = (
+        current_price.get_text(strip=True).replace(".", "").replace(",", ".").strip("€")
+    )
+    current_price = float(current_price)
+
+    old_price = soup.select_one("span.a-price.a-text-price span.a-offscreen")
+    old_price = old_price.get_text(strip=True) if old_price else current_price
+    if type(old_price) != float:
+        old_price = old_price.replace(".", "").replace(",", ".").strip("€")
+        old_price = float(old_price)
+
+    discount = old_price - current_price
+
+    return Price(newPrice=current_price, oldPrice=old_price, discount=discount)

@@ -1,18 +1,24 @@
 from datetime import datetime
+from pprint import pprint
 from models.product_model import ProductBody, SearchProduct
 from services.database_service import get_collection
-from utils.helpers import check_if_product_exist_by_name
-from utils.scrapers.amazon_search_scraper import scrap_search_page
-from utils.scrapers.pcdiga_scraper import (
+from utils.helpers import (
+    check_if_product_exist_by_name as _check_if_product_exist_by_name,
+    save_search as _save_search,
+)
+from utils.amazon_search_scraper import (
+    amazon_price_scraper,
+    scrap_amazon_url,
+    scrap_search_page,
+)
+from utils.pcdiga_scraper import (
     pc_diga_price_scraper,
     pc_diga_product_info_scraper,
     pc_diga_promotion_date,
     scrap_pc_diga_url,
 )
 from services.message_service import message_builder, send_message
-from services.price_service import save_record
 from services.product_service import (
-    delete_all_products_from_store,
     get_products as _get_products,
     update_product,
     create_product,
@@ -20,6 +26,8 @@ from services.product_service import (
 import asyncio
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException, status
+from selenium import webdriver
+from selenium.webdriver.common.by import By
 
 
 def scrap_pcdiga_urls():
@@ -59,14 +67,43 @@ def scrap_pcdiga_urls():
 
     asyncio.run(run_tasks())
 
-    save_record(scraped_data)
+    _save_search(scraped_data)
     message = message_builder(scraped_data)
     send_message(message, True)
     return "Check your messages!"
 
 
 def scrap_amazon_urls():
-    return
+    scraped_data = []
+    urls = _get_products("amazon")
+    tasks = []
+
+    async def scrape_url(url_data):
+        if url_data.store == "amazon":
+            page_content = await asyncio.to_thread(scrap_amazon_url, url_data.url)
+            prices = await asyncio.to_thread(amazon_price_scraper, page_content)
+            scraped_data.append(
+                {
+                    "prices": prices,
+                    "url": url_data.url,
+                    "product_name": url_data.product_name,
+                    "promotion_data": None,
+                }
+            )
+        else:
+            print("Invalid store!")
+
+    async def run_tasks():
+        for url_data in urls[1:5]:
+            task = asyncio.ensure_future(scrape_url(url_data))
+            tasks.append(task)
+        await asyncio.gather(*tasks)
+
+    asyncio.run(run_tasks())
+    
+    _save_search(scraped_data)
+    
+    return "Check your messages!"
 
 
 def scrap_amazon_search_page(search_item: str):
@@ -77,9 +114,11 @@ def scrap_amazon_search_page(search_item: str):
             amazon_search_collection = get_collection("amazon_search")
             current_datetime = datetime.now()
             current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-            searched_product = SearchProduct(**{**item, "date": current_time})
+            searched_product = SearchProduct(
+                **{**item, "date": current_time, "search_product": search_item}
+            )
 
-            if not check_if_product_exist_by_name(searched_product.title):
+            if not _check_if_product_exist_by_name(searched_product.title):
                 create_product(
                     ProductBody(
                         url="https://www.amazon.es" + searched_product.url,
@@ -103,17 +142,8 @@ def scrap_amazon_search_page(search_item: str):
         )
 
 
-def get_all_searchs_from_amazon():
-    try:
-        amazon_search_collection = get_collection("amazon_search")
-        return [item for item in amazon_search_collection.find({})]
-    except Exception as e:
-        raise e
+def scrap_pcdiga_search_page(search_item: str):
+    return
 
-
-def delete_all_searchs_from_amazon():
-    try:
-        amazon_search_collection = get_collection("amazon_search")
-        amazon_search_collection.delete_many({})
-    except Exception as e:
-        raise e
+def scrap_amazon_product(product_uuid: str):
+    return

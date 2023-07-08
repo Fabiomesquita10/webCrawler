@@ -1,5 +1,5 @@
 
-from controllers.priceController import priceRouter
+from controllers.analyticsController import analyticsRouter
 from controllers.productController import productRouter
 from controllers.userController import userRouter
 from controllers.cartController import cartRouter
@@ -9,7 +9,7 @@ import uvicorn
 
 app = FastAPI()
 app.include_router(productRouter)
-app.include_router(priceRouter)
+app.include_router(analyticsRouter)
 app.include_router(userRouter)
 app.include_router(cartRouter)
 app.include_router(scraperRouter)

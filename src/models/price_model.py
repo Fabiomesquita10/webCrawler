@@ -3,7 +3,7 @@ from pydantic import BaseModel
 class Price(BaseModel):
     newPrice: float
     oldPrice: float
-    discount: float
+    discount: float | None
     def to_str(self):
         return f"Current Price: {self.newPrice} €\nProduct Price: {self.oldPrice} €\nDiscount: {self.discount} €"
 

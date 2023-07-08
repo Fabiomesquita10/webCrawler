@@ -47,6 +47,7 @@ class SearchProduct(BaseModel):
     url: str
     number_reviews: str
     date: str
+    search_product: str
 
     def to_dict(self):
         return {
@@ -57,4 +58,6 @@ class SearchProduct(BaseModel):
             "url": self.url,
             "number_reviews": self.number_reviews,
             "date": self.date,
+            "search_product": self.search_product
         }
+

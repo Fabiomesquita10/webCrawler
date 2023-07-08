@@ -28,7 +28,6 @@ def create_product(
             return {"message": "Invalid URL"}
 
         url_collection.insert_one(data)
-        print("Inserted data UUID:", product_uuid)  # Log the inserted data ID
         return {"message": "Product added successfully", "uuid": product_uuid}
     except Exception as e:
         print("Error:", e)  # Log the error message

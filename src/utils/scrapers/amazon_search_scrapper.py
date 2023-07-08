@@ -37,24 +37,24 @@ def extract_element_text(element):
 
 def scraped_data(data):
     try:
-        uuid = data.find("h2").get("data-uuid")
+        uuid = data.get("data-uuid")
 
         title_element = data.find("h2").find("a").find("span")
-        title = extract_element_text(title_element)
+        title = title_element.text.strip() if title_element else "N/A"
 
-        price_element = data.find("a-offscreen", class_="span")
-        price = extract_element_text(price_element)
+        price_element = data.find("span", class_="a-offscreen")
+        price = price_element.text.strip() if price_element else "N/A"
 
         classification_element = data.find("span", class_="a-icon-alt")
-        classification = extract_element_text(classification_element)
-
-        url_element = data.find("h2").find("a")
-        url = (
-            urllib.parse.urljoin(BASE_URL, url_element["href"]) if url_element else None
+        classification = (
+            classification_element.text.strip() if classification_element else "N/A"
         )
 
+        url_element = data.find("h2").find("a")
+        url = url_element["href"] if url_element else "N/A"
+
         reviews_element = data.find("span", class_="a-size-base s-underline-text")
-        reviews = extract_element_text(reviews_element)
+        reviews = reviews_element.text.strip() if reviews_element else "N/A"
 
         return {
             "uuid": uuid,

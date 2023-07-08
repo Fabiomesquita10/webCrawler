@@ -1,7 +1,19 @@
 from bs4 import BeautifulSoup
 from models.price_model import Price
 import re
+from playwright.sync_api import sync_playwright
 
+
+def scrap_pc_diga_url(url: str):
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False, slow_mo=100)
+        page = browser.new_page()
+        page.goto(url)
+        html_content = page.inner_html(
+            "body"
+        )  # Get the inner HTML of the <html> element
+        return html_content
+    
 
 def pc_diga_price_scraper(html_content: str):
     soup = BeautifulSoup(html_content, "html.parser")

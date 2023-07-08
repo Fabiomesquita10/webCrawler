@@ -1,14 +1,14 @@
 from fastapi import APIRouter
 
-from services.scraper_service import scrap_urls
-from utils.scrapers.amazon_scrapper import scrap_search_page
+from services.scraper_service import scrap_amazon_search_page, scrap_pcdiga_urls
+from utils.scrapers.amazon_search_scrapper import scrap_search_page
 
 scraperRouter = APIRouter(prefix="/scrap", tags=["Scraper"])
 
 @scraperRouter.get("/pcDiga")
 def test_scraper_pc_diga():
-    return scrap_urls()
+    return scrap_pcdiga_urls()
 
 @scraperRouter.get("/amazon/{search_item}")
 def test_scraper_amazon(search_item: str):
-    return scrap_search_page(search_item)
+    return scrap_amazon_search_page(search_item)

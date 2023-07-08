@@ -1,6 +1,5 @@
 import logging
 from selenium.common.exceptions import TimeoutException
-import urllib.parse
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -72,30 +71,33 @@ def scraped_data(data):
 
 
 def scrap_search_page(search_item: str, num_items: int = 10) -> list:
-    driver = webdriver.Chrome()
-    driver.get("https://www.amazon.es/")
-    search_box = wait_for_element(driver, (By.ID, "twotabsearchtextbox"))
-    search_box.send_keys(search_item)
-    search_button = wait_for_element(driver, (By.XPATH, "//input[@value='Ir']"))
-    search_button.click()
+    try:
+        driver = webdriver.Chrome()
+        driver.get("https://www.amazon.es/")
+        search_box = wait_for_element(driver, (By.ID, "twotabsearchtextbox"))
+        search_box.send_keys(search_item)
+        search_button = wait_for_element(driver, (By.XPATH, "//input[@value='Ir']"))
+        search_button.click()
 
-    html_content = driver.page_source
-    driver.quit()
+        html_content = driver.page_source
+        driver.quit()
 
-    if html_content is None:
-        return []
+        if html_content is None:
+            return []
 
-    soup = BeautifulSoup(html_content, "html.parser")
-    search_results = soup.find_all(
-        "div",
-        class_="sg-col-4-of-24 sg-col-4-of-12 s-result-item s-asin sg-col-4-of-16 sg-col s-widget-spacing-small sg-col-4-of-20",
-    )
+        soup = BeautifulSoup(html_content, "html.parser")
+        search_results = soup.find_all(
+            "div",
+            class_="sg-col-4-of-24 sg-col-4-of-12 s-result-item s-asin sg-col-4-of-16 sg-col s-widget-spacing-small sg-col-4-of-20",
+        )
 
-    items = []
-    for index, data in enumerate(search_results):
-        items.append(scraped_data(data))
+        items = []
+        for index, data in enumerate(search_results):
+            items.append(scraped_data(data))
 
-        if index == num_items - 1:
-            break
+            if index == num_items - 1:
+                break
 
-    return items
+        return items
+    except Exception as e:
+        raise e

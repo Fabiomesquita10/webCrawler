@@ -1,8 +1,9 @@
 from datetime import datetime
-from models.product_model import SearchProduct
+from models.product_model import ProductBody, SearchProduct
 from services.database_service import get_collection
-from utils.scrapers.amazon_search_scrapper import scrap_search_page
-from utils.scrapers.pcdiga_scrapper import (
+from utils.helpers import check_if_product_exist_by_name
+from utils.scrapers.amazon_search_scraper import scrap_search_page
+from utils.scrapers.pcdiga_scraper import (
     pc_diga_price_scraper,
     pc_diga_product_info_scraper,
     pc_diga_promotion_date,
@@ -10,14 +11,20 @@ from utils.scrapers.pcdiga_scrapper import (
 )
 from services.message_service import message_builder, send_message
 from services.price_service import save_record
-from services.product_service import get_products as _get_products, update_product
+from services.product_service import (
+    delete_all_products_from_store,
+    get_products as _get_products,
+    update_product,
+    create_product,
+)
 import asyncio
-from pprint import pprint
+from fastapi.responses import JSONResponse
+from fastapi import HTTPException, status
 
 
 def scrap_pcdiga_urls():
     scraped_data = []
-    urls = _get_products()
+    urls = _get_products("pcdiga")
     tasks = []
 
     async def scrape_url(url_data):
@@ -58,11 +65,12 @@ def scrap_pcdiga_urls():
     return "Check your messages!"
 
 
+def scrap_amazon_urls():
+    return
+
+
 def scrap_amazon_search_page(search_item: str):
     try:
-        # just for testing purposes
-        delete_all_searchs_from_amazon()
-
         items = scrap_search_page(search_item)
 
         for item in items:
@@ -70,16 +78,33 @@ def scrap_amazon_search_page(search_item: str):
             current_datetime = datetime.now()
             current_time = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
             searched_product = SearchProduct(**{**item, "date": current_time})
+
+            if not check_if_product_exist_by_name(searched_product.title):
+                create_product(
+                    ProductBody(
+                        url="https://www.amazon.es" + searched_product.url,
+                        store="amazon",
+                    ),
+                    searched_product.uuid,
+                    searched_product.title,
+                )
+
             amazon_search_collection.insert_one(searched_product.to_dict())
 
-        pprint(get_all_searchs_from_amazon())
-        return {"message": "All data has been scraped!"}
-    except Exception as e:
-        raise e
+        return JSONResponse(
+            content={"message": "All products updated!"},
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    except HTTPException as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": "Internal server error."},
+        )
 
 
 def get_all_searchs_from_amazon():
-    try: 
+    try:
         amazon_search_collection = get_collection("amazon_search")
         return [item for item in amazon_search_collection.find({})]
     except Exception as e:
@@ -87,5 +112,8 @@ def get_all_searchs_from_amazon():
 
 
 def delete_all_searchs_from_amazon():
-    amazon_search_collection = get_collection("amazon_search")
-    amazon_search_collection.delete_many({})
+    try:
+        amazon_search_collection = get_collection("amazon_search")
+        amazon_search_collection.delete_many({})
+    except Exception as e:
+        raise e

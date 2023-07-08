@@ -1,6 +1,6 @@
 
 from controllers.priceController import priceRouter
-from controllers.productController import urlRouter
+from controllers.productController import productRouter
 from controllers.userController import userRouter
 from controllers.cartController import cartRouter
 from controllers.scraperController import scraperRouter
@@ -8,7 +8,7 @@ from fastapi import FastAPI
 import uvicorn
 
 app = FastAPI()
-app.include_router(urlRouter)
+app.include_router(productRouter)
 app.include_router(priceRouter)
 app.include_router(userRouter)
 app.include_router(cartRouter)

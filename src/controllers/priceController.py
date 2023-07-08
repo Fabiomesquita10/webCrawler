@@ -4,10 +4,6 @@ from services.scraper_service import scrap_pcdiga_urls
 
 priceRouter = APIRouter(prefix="/price", tags=["Price"])
 
-@priceRouter.get("/updates")
-def get_price_update():
-    return scrap_pcdiga_urls()
-
 @priceRouter.get("")
 def get_prices_record():
     return _get_all_records()

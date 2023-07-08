@@ -22,3 +22,7 @@ def validate_update_cart_op(operation: str) -> bool:
 
 def check_product_in_cart(product_list: list, product_uuid: str) -> bool:
     return product_uuid in product_list
+
+def check_if_product_exist_by_name(product_name: str) -> bool:
+    product_collection = get_collection("products")
+    return True if product_collection.find_one({"product_name": product_name}) else False

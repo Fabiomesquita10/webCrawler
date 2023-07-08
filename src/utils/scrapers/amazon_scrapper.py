@@ -1,25 +1,89 @@
+import logging
+from selenium.common.exceptions import TimeoutException
+import urllib.parse
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
-import re
-import sys
+
+BASE_URL = "https://www.amazon.es"
 
 
-def scrap(url: str, search_item: str):
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False, slow_mo=5000)
-        page = browser.new_page()
-        page.goto(url)
-        search_input_selector = "#twotabsearchtextbox"
-        page.fill(search_input_selector, search_item)
-        search_button_selector = "#nav-search-submit-button"
-        page.click(search_button_selector)
-
-        html_content = page.inner_html("body")
-        return html_content
+class CustomException(Exception):
+    pass
 
 
-def scrap_search_page(search_item: str) -> list:
-    html_content = scrap("https://www.amazon.es/", search_item)
+def wait_for_element(driver, locator, timeout=10):
+    if not driver:
+        raise ValueError("Invalid driver provided.")
+    if not locator or not isinstance(locator, tuple) or len(locator) != 2:
+        raise ValueError("Invalid locator provided.")
+
+    try:
+        wait = WebDriverWait(driver, timeout)
+        element = wait.until(EC.presence_of_element_located(locator))
+        return element
+    except TimeoutException:
+        raise TimeoutException("Element not found within the specified timeout.")
+
+
+def extract_element_text(element):
+    try:
+        return element.text.strip()
+    except AttributeError:
+        return None
+
+
+def scraped_data(data):
+    try:
+        uuid = data.find("h2").get("data-uuid")
+
+        title_element = data.find("h2").find("a").find("span")
+        title = extract_element_text(title_element)
+
+        price_element = data.find("a-offscreen", class_="span")
+        price = extract_element_text(price_element)
+
+        classification_element = data.find("span", class_="a-icon-alt")
+        classification = extract_element_text(classification_element)
+
+        url_element = data.find("h2").find("a")
+        url = (
+            urllib.parse.urljoin(BASE_URL, url_element["href"]) if url_element else None
+        )
+
+        reviews_element = data.find("span", class_="a-size-base s-underline-text")
+        reviews = extract_element_text(reviews_element)
+
+        return {
+            "uuid": uuid,
+            "title": title,
+            "price": price,
+            "classification": classification,
+            "url": url,
+            "number_reviews": reviews,
+        }
+    except AttributeError as e:
+        raise CustomException(f"Error scraping data: {e}")
+    except Exception as e:
+        logging.error(f"Error scraping data: {e}")
+        return None
+
+
+def scrap_search_page(search_item: str, num_items: int = 10) -> list:
+    driver = webdriver.Chrome()
+    driver.get("https://www.amazon.es/")
+    search_box = wait_for_element(driver, (By.ID, "twotabsearchtextbox"))
+    search_box.send_keys(search_item)
+    search_button = wait_for_element(driver, (By.XPATH, "//input[@value='Ir']"))
+    search_button.click()
+
+    html_content = driver.page_source
+    driver.quit()
+
+    if html_content is None:
+        return []
 
     soup = BeautifulSoup(html_content, "html.parser")
     search_results = soup.find_all(
@@ -29,35 +93,9 @@ def scrap_search_page(search_item: str) -> list:
 
     items = []
     for index, data in enumerate(search_results):
-        asin = data.get("data-uuid")
+        items.append(scraped_data(data))
 
-        title_element = data.find("h2").find("a").find("span")
-        title = title_element.text.strip() if title_element else "N/A"
-
-        price_element = data.find("span", class_="a-offscreen")
-        price = price_element.text.strip() if price_element else "N/A"
-
-        classification_element = data.find("span", class_="a-icon-alt")
-        classification = (
-            classification_element.text.strip() if classification_element else "N/A"
-        )
-
-        url_element = data.find("h2").find("a")
-        url = "https://www.amazon.es" + url_element["href"] if url_element else "N/A"
-
-        reviews_element = data.find("span", class_="a-size-base s-underline-text")
-        reviews = reviews_element.text.strip() if reviews_element else "N/A"
-        
-        if index == 10: break
-        items.append(
-            {
-                "uuid": asin,
-                "title": title,
-                "price": price,
-                "classification": classification,
-                "url": url,
-                "number_reviews": reviews,
-            }
-        )
+        if index == num_items - 1:
+            break
 
     return items

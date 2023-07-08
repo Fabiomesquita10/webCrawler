@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from models.price_model import Price
+from models.analytics_model import Price
 import re
 from playwright.sync_api import sync_playwright
 

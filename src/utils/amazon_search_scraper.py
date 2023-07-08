@@ -8,7 +8,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 
-from models.price_model import Price
+from models.analytics_model import Price
 
 BASE_URL = "https://www.amazon.es"
 
@@ -116,20 +116,28 @@ def scrap_amazon_url(url: str):
 
 
 def amazon_price_scraper(html_content: str):
-    soup = BeautifulSoup(html_content, "html.parser")
+    try:
+        soup = BeautifulSoup(html_content, "html.parser")
 
-    current_price = soup.find("span", class_="a-offscreen")
-    current_price = (
-        current_price.get_text(strip=True).replace(".", "").replace(",", ".").strip("€")
-    )
-    current_price = float(current_price)
+        current_price = soup.find("span", class_="a-offscreen")
+        current_price = (
+            current_price.get_text(strip=True).replace(".", "").replace(",", ".").strip("€")
+        )
+        current_price = float(current_price)
 
-    old_price = soup.select_one("span.a-price.a-text-price span.a-offscreen")
-    old_price = old_price.get_text(strip=True) if old_price else current_price
-    if type(old_price) != float:
-        old_price = old_price.replace(".", "").replace(",", ".").strip("€")
-        old_price = float(old_price)
+        print(current_price)
+        
+        old_price = soup.select_one("span.a-price.a-text-price span.a-offscreen")
+        old_price = old_price.get_text(strip=True) if old_price else current_price
+        if type(old_price) != float:
+            old_price = old_price.replace(".", "").replace(",", ".").strip("€")
+            old_price = float(old_price)
 
-    discount = old_price - current_price
+        print(old_price)
 
-    return Price(newPrice=current_price, oldPrice=old_price, discount=discount)
+
+        discount = old_price - current_price
+
+        return Price(newPrice=current_price, oldPrice=old_price, discount=discount)
+    except Exception as e:
+        return None

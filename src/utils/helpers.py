@@ -57,7 +57,6 @@ def save_search(scrapped_data: dict):
     analytics_collection = get_collection("analytics")
     for data in scrapped_data:
         product = get_product_by_url(data["url"])
-        print(product)
         new_data = {
             "product_id": product["uuid"],
             "new_price": data["prices"].newPrice,
@@ -72,7 +71,27 @@ def save_search(scrapped_data: dict):
         }
         analytics_collection.insert_one(new_data)
 
+
 def get_product_by_url(url: str):
     url_collection = get_collection("products")
     product = url_collection.find_one({"url": url})
     return product
+
+
+def get_product_by_uuid(uuid: str):
+    url_collection = get_collection("products")
+    product = url_collection.find_one({"uuid": uuid})
+    return product
+
+
+def get_analytics_by_product_uuid(product_uuid: str):
+    analytics_collection = get_collection("analytics")
+    return analytics_collection.find({"product_id": product_uuid})
+
+
+def get_records_from_search(store: str, searched_item: str):
+    if store == "amazon":
+        amazon_record_collection = get_collection("amazon_search")
+        return amazon_record_collection.find({"search_product": searched_item})
+    elif store == "pcdiga":
+        return None

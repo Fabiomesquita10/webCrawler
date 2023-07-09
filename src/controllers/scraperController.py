@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 
 from services.scraper_service import scrap_amazon_product, scrap_amazon_search_page, scrap_amazon_urls, scrap_pcdiga_urls
-from utils.amazon_search_scraper import scrap_search_page
 
 scraperRouter = APIRouter(prefix="/scrap", tags=["Scraper"])
 

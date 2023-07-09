@@ -13,10 +13,9 @@ def get_product_analytics(product_uuid: str):
     return _get_product_analytics(product_uuid)
 
 
-@analyticsRouter.get("/store/{store}/item/{searched_item}")
-def get_search_product_analytics(store: str, searched_item: str):
-    # TODO: return all records from a search on a given store
-    return get_all_records_from_search(searched_item, store)
+@analyticsRouter.get("/store/{store}/item/{search_input}")
+def get_search_product_analytics(store: str, search_input: str):
+    return get_all_records_from_search(search_input, store)
 
     
 @analyticsRouter.delete("/")

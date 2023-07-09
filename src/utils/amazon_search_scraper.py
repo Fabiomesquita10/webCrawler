@@ -59,6 +59,9 @@ def scraped_data(data):
         reviews_element = data.find("span", class_="a-size-base s-underline-text")
         reviews = reviews_element.text.strip() if reviews_element else "N/A"
 
+        image_element = data.find("img", class_="s-image")
+        url_image = image_element['src'] if image_element else 'N/A'
+
         return {
             "uuid": uuid,
             "title": title,
@@ -66,6 +69,7 @@ def scraped_data(data):
             "classification": classification,
             "url": url,
             "number_reviews": reviews,
+            "image": url_image,
         }
     except AttributeError as e:
         raise CustomException(f"Error scraping data: {e}")

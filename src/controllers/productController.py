@@ -8,7 +8,7 @@ from services.product_service import (
     delete_all_products_from_store as _delete_products_by_store,
     update_product as _update_product,
 )
-from models.product_model import ProdcutUpdate, Product, ProductBody, ProductDTO
+from models.product_model import ProductUpdate, Product, ProductBody, ProductDTO
 from typing import List
 from fastapi.responses import JSONResponse
 
@@ -57,5 +57,5 @@ def create_product(product: ProductBody) -> ProductDTO:
 
 
 @productRouter.patch("/{product_uuid}")
-def update_product(product: ProdcutUpdate, product_uuid: str) -> ProductDTO:
+def update_product(product: ProductUpdate, product_uuid: str) -> ProductDTO:
     return _update_product(product, product_uuid)

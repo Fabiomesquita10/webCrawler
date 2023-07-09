@@ -113,6 +113,7 @@ def get_product_by_url(url: str):
 def get_product_by_uuid(product_uuid: str):
     url_collection = get_collection("products")
     product = url_collection.find_one({"uuid": product_uuid})
+    product["image"] = get_image_by_product_uuid(product["uuid"])
     return product
 
 
@@ -143,10 +144,24 @@ def get_products(store: str = None) -> List[ProductDTO]:
                 "url": product["url"],
                 "store": product["store"],
                 "product_name": product.get("product_name") or None,
+                "image": get_image_by_product_uuid(product["uuid"]),
             }
         )
         for product in products
     ]
 
+
+def get_image_by_product_uuid(product_uuid: str):
+    image_collection = get_collection("images")
+    image = image_collection.find_one({"product_uuid": product_uuid})
+    if image:
+        return image.get("image_url")
+
+
 def verif_store_name(store: str) -> bool:
     return True if store == "amazon" or store == "pcdiga" else False
+
+
+def save_image(image_url: str, product_uuid: str):
+    image_collection = get_collection("images")
+    image_collection.insert_one({"image_url": image_url, "product_uuid": product_uuid})

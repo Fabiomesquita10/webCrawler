@@ -4,32 +4,30 @@ from models.product_model import ProductBody, SearchProduct
 from services.database_service import get_collection
 from utils.helpers import (
     check_if_product_exist_by_name as _check_if_product_exist_by_name,
-    get_product_by_uuid,
+    get_product_by_uuid as _get_product_by,
+    save_image as _save_image,
     save_search as _save_search,
 )
 from utils.amazon_search_scraper import (
-    amazon_price_scraper,
-    scrap_amazon_url,
-    scrap_search_page,
+    amazon_price_scraper as _amazon_price_scraper,
+    scrap_amazon_url as _scrap_amazon_url,
+    scrap_search_page as _scrap_search_page,
 )
 from utils.pcdiga_scraper import (
-    pc_diga_price_scraper,
-    pc_diga_product_info_scraper,
-    pc_diga_promotion_date,
-    scrap_pc_diga_url,
+    pc_diga_price_scraper as _pc_diga_price_scraper,
+    pc_diga_product_info_scraper as _pc_diga_product_info_scraper,
+    pc_diga_promotion_date as _pc_diga_promotion_date,
+    scrap_pc_diga_url as _scrap_pc_diga_url,
 )
-from services.message_service import message_builder, send_message
 from services.product_service import (
-    update_product,
-    create_product,
+    update_product as _update_product,
+    create_product as _create_product,
 )
 from utils.helpers import get_products as _get_products
 
 import asyncio
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException, status
-from selenium import webdriver
-from selenium.webdriver.common.by import By
 
 
 def scrap_pcdiga_urls():
@@ -39,13 +37,13 @@ def scrap_pcdiga_urls():
 
     async def scrape_url(url_data):
         if url_data.store == "pcdiga":
-            page_content = await asyncio.to_thread(scrap_pc_diga_url, url_data.url)
-            prices = await asyncio.to_thread(pc_diga_price_scraper, page_content)
+            page_content = await asyncio.to_thread(_scrap_pc_diga_url, url_data.url)
+            prices = await asyncio.to_thread(_pc_diga_price_scraper, page_content)
             product_name = await asyncio.to_thread(
-                pc_diga_product_info_scraper, page_content
+                _pc_diga_product_info_scraper, page_content
             )
             promotion_dates = (
-                await asyncio.to_thread(pc_diga_promotion_date, page_content)
+                await asyncio.to_thread(_pc_diga_promotion_date, page_content)
                 if prices.discount
                 else None
             )
@@ -57,7 +55,7 @@ def scrap_pcdiga_urls():
                     "promotion_data": promotion_dates,
                 }
             )
-            update_product(url_data, product_name)
+            _update_product(url_data, product_name)
         else:
             print("Invalid store!")
 
@@ -119,8 +117,7 @@ def scrap_amazon_urls():
 
 def scrap_amazon_search_page(search_item: str):
     try:
-        items = scrap_search_page(search_item)
-
+        items = _scrap_search_page(search_item)
         for item in items:
             amazon_search_collection = get_collection("amazon_search")
             current_datetime = datetime.now()
@@ -131,15 +128,15 @@ def scrap_amazon_search_page(search_item: str):
 
             if not _check_if_product_exist_by_name(searched_product.title):
                 url = "https://www.amazon.es" + searched_product.url
-                create_product(
+                _create_product(
                     ProductBody(
-                        url= url,
+                        url=url,
                         store="amazon",
                     ),
                     searched_product.uuid,
                     searched_product.title,
                 )
-            
+                _save_image(item["image"], searched_product.uuid)
                 amazon_search_collection.insert_one(searched_product.to_dict())
 
         return JSONResponse(
@@ -155,10 +152,10 @@ def scrap_amazon_search_page(search_item: str):
 
 
 def scrap_amazon_product(product_uuid: str):
-    product = get_product_by_uuid(product_uuid)
+    product = _get_product_by(product_uuid)
     if product["store"] == "amazon":
-        page_content = scrap_amazon_url(product["url"])
-        prices = amazon_price_scraper(page_content)
+        page_content = _scrap_amazon_url(product["url"])
+        prices = _amazon_price_scraper(page_content)
         data = {
             "prices": prices,
             "url": product["url"],

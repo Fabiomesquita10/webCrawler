@@ -1,6 +1,6 @@
 import uuid
 from aiohttp_retry import List
-from models.product_model import ProdcutUpdate, ProductBody, ProductDTO
+from models.product_model import ProductUpdate, ProductBody, ProductDTO
 from services.database_service import get_collection
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException, status
@@ -214,7 +214,7 @@ def delete_all_products_from_store(store_name):
         )
 
 
-def update_product(product: ProdcutUpdate, product_uuid: str):
+def update_product(product: ProductUpdate, product_uuid: str):
     try:
         product_collection = get_collection("products")
         if not _check_if_product_exists(product_uuid):

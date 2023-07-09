@@ -20,6 +20,13 @@ class Product(BaseModel):
     def to_dict(self):
         return {"uuid": self.uuid, "url": self.url, "store": self.store}
 
+class ProdcutUpdate(BaseModel):
+    product_name: str | None
+    url: str | None
+    store: str | None
+
+    def to_dict(self):
+        return {"product_name": self.product_name, "url": self.url, "store": self.store}
 
 class ProductDTO(BaseModel):
     uuid: str

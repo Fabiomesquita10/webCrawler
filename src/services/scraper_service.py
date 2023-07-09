@@ -20,10 +20,11 @@ from utils.pcdiga_scraper import (
 )
 from services.message_service import message_builder, send_message
 from services.product_service import (
-    get_products as _get_products,
     update_product,
     create_product,
 )
+from utils.helpers import get_products as _get_products
+
 import asyncio
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException, status

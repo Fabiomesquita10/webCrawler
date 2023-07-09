@@ -1,5 +1,7 @@
 from pprint import pprint
-from models.product_model import SearchProduct
+from typing import List
+from urllib.parse import urlparse
+from models.product_model import ProductDTO, SearchProduct
 from services.database_service import get_collection
 
 
@@ -11,6 +13,11 @@ def check_if_product_exists(product_uuid: str) -> bool:
 def check_if_user_exists(user_uuid: str) -> bool:
     user_collection = get_collection("users")
     return True if user_collection.find_one({"uuid": user_uuid}) else False
+
+
+def check_if_url_exists(url: str) -> bool:
+    product_collection = get_collection("products")
+    return True if product_collection.find_one({"url": url}) else False
 
 
 def check_if_cart_exists(cart_uuid: str) -> bool:
@@ -95,3 +102,51 @@ def get_records_from_search(store: str, searched_item: str):
         return amazon_record_collection.find({"search_product": searched_item})
     elif store == "pcdiga":
         return None
+
+
+def get_product_by_url(url: str):
+    url_collection = get_collection("products")
+    product = url_collection.find_one({"url": url})
+    return product
+
+
+def get_product_by_uuid(product_uuid: str):
+    url_collection = get_collection("products")
+    product = url_collection.find_one({"uuid": product_uuid})
+    return product
+
+
+def get_product_by_id(id: str):
+    url_collection = get_collection("products")
+    product = url_collection.find_one({"_id": id})
+    return product
+
+
+def validate_url(url: str) -> bool:
+    parsed_url = urlparse(url)
+    return all([parsed_url.scheme, parsed_url.netloc])
+
+
+def get_products(store: str = None) -> List[ProductDTO]:
+    product_collection = get_collection("products")
+
+    products = (
+        product_collection.find({"store": store})
+        if store
+        else product_collection.find()
+    )
+
+    return [
+        ProductDTO(
+            **{
+                "uuid": product["uuid"],
+                "url": product["url"],
+                "store": product["store"],
+                "product_name": product.get("product_name") or None,
+            }
+        )
+        for product in products
+    ]
+
+def verif_store_name(store: str) -> bool:
+    return True if store == "amazon" or store == "pcdiga" else False

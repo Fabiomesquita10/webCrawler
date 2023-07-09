@@ -1,119 +1,261 @@
-from urllib.parse import urlparse
-from models.product_model import Product, ProductBody, ProductDTO
-from services.database_service import get_collection
 import uuid
+from aiohttp_retry import List
+from models.product_model import ProdcutUpdate, ProductBody, ProductDTO
+from services.database_service import get_collection
+from fastapi.responses import JSONResponse
+from fastapi import HTTPException, status
+from utils.helpers import (
+    check_if_product_exists as _check_if_product_exists,
+    check_if_url_exists as _check_if_url_exists,
+    get_product_by_uuid as _get_product_by_uuid,
+    validate_url as _validate_url,
+    get_products as _get_products,
+    verif_store_name as _verif_store_name,
+)
 
-from utils.helpers import check_if_product_exists
+
+class ProductException(HTTPException):
+    def __init__(self, status_code: status, message: str):
+        super().__init__(status_code, detail={"message": message})
 
 
 def create_product(
-    url_data: ProductBody, uuid: str = None, product_name: str = None
-) -> dict:
+    product: ProductBody, given_product_uuid: str = None, product_name: str = None
+) -> ProductDTO:
     try:
-        url_collection = get_collection("products")
-        product_uuid = uuid or str(uuid.uuid4())
+        if not _validate_url(product.url):
+            raise ProductException(
+                status_code=status.HTTP_409_CONFLICT, message="Invalid Url!"
+            )
+
+        if _check_if_url_exists(product.url):
+            raise ProductException(
+                status_code=status.HTTP_412_PRECONDITION_FAILED,
+                message="Product already created!",
+            )
+
+        if not _verif_store_name(product.store):
+            raise ProductException(
+                status_code=status.HTTP_412_PRECONDITION_FAILED,
+                message="Invalid store name, please insert insert Pcdiga or Amazon!",
+            )
+
+        product_collection = get_collection("products")
+        product_uuid = (
+            given_product_uuid if given_product_uuid != None else str(uuid.uuid4())
+        )
 
         data = {
             "uuid": product_uuid,
-            "store": url_data.store,
-            "url": url_data.url,
+            "store": product.store,
+            "url": product.url,
             "product_name": product_name,
         }
-        if check_if_product_exists(product_uuid):
-            raise Exception("Product already exists")
 
-        parsed_url = urlparse(url_data.url)
-        if not all([parsed_url.scheme, parsed_url.netloc]):
-            print("Invalid URL")  # Log the invalid URL
-            return {"message": "Invalid URL"}
+        if _check_if_product_exists(product_uuid):
+            raise ProductException(
+                status_code=status.HTTP_409_CONFLICT, message="Product already exists!"
+            )
 
-        url_collection.insert_one(data)
-        return {"message": "Product added successfully", "uuid": product_uuid}
-    except Exception as e:
-        print("Error:", e)  # Log the error message
-        raise Exception("Can't add new URL: " + str(e))
+        product_collection.insert_one(data)
 
-
-def get_products(store: str = None):
-    url_collection = get_collection("products")
-    if store is None:
-        urls = url_collection.find()
-    else:
-        urls = url_collection.find({"store": store})
-    return [
-        ProductDTO(
-            **{
-                "uuid": url["uuid"],
-                "url": url["url"],
-                "store": url["store"],
-                "product_name": url.get("product_name") or None,
-            }
+        return JSONResponse(
+            content=ProductDTO(**data).to_dict(),
+            status_code=status.HTTP_201_CREATED,
         )
-        for url in urls
-    ]
+    except ProductException as e:
+        raise e
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": f"Internal server error: {e}"},
+        )
 
 
-def delete_products() -> dict:
+def get_product_by_uuid(product_uuid: str) -> ProductDTO:
     try:
-        url_collection = get_collection("products")
+        if not _check_if_product_exists(product_uuid):
+            raise ProductException(
+                status_code=status.HTTP_412_PRECONDITION_FAILED,
+                message="ProductUuid not valid! Product not found!",
+            )
+        return JSONResponse(
+            content=ProductDTO(**_get_product_by_uuid(product_uuid)).to_dict(),
+            status_code=status.HTTP_200_OK,
+        )
+    except ProductException as e:
+        raise e
 
-        # Delete all documents in the "products" collection
-        result = url_collection.delete_many({})
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": f"Internal server error.\n{e}"},
+        )
+
+
+def get_products(
+    store: str = None, page: int = 1, page_size: int = 10
+) -> List[ProductDTO]:
+    try:
+        if store and not _verif_store_name(store):
+            raise ProductException(
+                status_code=status.HTTP_412_PRECONDITION_FAILED,
+                message="Invalid store name, please insert Pcdiga or Amazon!",
+            )
+
+        products = _get_products(store) if store else _get_products()
+
+        # Calculate the start and end index based on the page and page_size
+        start_index = (page - 1) * page_size
+        end_index = start_index + page_size
+
+        # Get the products for the current page
+        paginated_products = products[start_index:end_index]
+
+        return JSONResponse(
+            content=[product.to_dict() for product in paginated_products],
+            status_code=status.HTTP_201_CREATED,
+        )
+    except ProductException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": f"Internal server error: {e}"},
+        )
+
+
+def delete_product_by_uuid(product_uuid: str) -> JSONResponse:
+    try:
+        if not _check_if_product_exists(product_uuid):
+            raise ProductException(
+                status_code=status.HTTP_412_PRECONDITION_FAILED,
+                message="ProductUuid not valid! Product not found!",
+            )
+        product_collection = get_collection("products")
+
+        result = product_collection.delete_one({"uuid": product_uuid})
 
         if result.deleted_count > 0:
-            return {"message": "All products deleted successfully"}
+            return JSONResponse(
+                content={"message": "Product deleted successfully"},
+                status_code=status.HTTP_202_ACCEPTED,
+            )
         else:
-            return {"message": "No products found to delete"}
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"message": "Internal error deleting the product"},
+            )
+    except ProductException as e:
+        raise e
+
     except Exception as e:
-        raise Exception("Can't delete products: " + str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": f"Internal server error.\n{e}"},
+        )
 
 
-def delete_product_by_uuid(product_uuid: str) -> dict:
+def delete_products() -> JSONResponse:
     try:
-        url_collection = get_collection("products")
+        product_collection = get_collection("products")
 
-        # Find the product with the specified UUID
-        product = url_collection.find_one({"uuid": product_uuid})
+        result = product_collection.delete_many({})
 
-        if product:
-            # Delete the product from the collection
-            result = url_collection.delete_one({"uuid": product_uuid})
-
-            if result.deleted_count > 0:
-                return {"message": "Product deleted successfully"}
-            else:
-                return {"message": "Product deletion failed"}
+        if result.deleted_count > 0:
+            return JSONResponse(
+                content={"message": "All products were deleted successfully"},
+                status_code=status.HTTP_202_ACCEPTED,
+            )
         else:
-            return {"message": "Product not found"}
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"message": "Internal error deleting the product"},
+            )
+    except ProductException as e:
+        raise e
+
     except Exception as e:
-        raise Exception("Can't delete product: " + str(e))
-
-
-def update_product(url: Product, product_name: str):
-    url_collection = get_collection("products")
-    updated_data = {"store": url.store, "url": url.url, "product_name": product_name}
-    url_collection.update_one({"url": url.url}, {"$set": updated_data})
-
-
-def get_product_by_url(url: str):
-    url_collection = get_collection("products")
-    product = url_collection.find_one({"url": url})
-    return product
-
-
-def get_product_by_uuid(product_uuid: str):
-    url_collection = get_collection("products")
-    product = url_collection.find_one({"uuid": product_uuid})
-    return product
-
-
-def get_product_by_id(id: str):
-    url_collection = get_collection("products")
-    product = url_collection.find_one({"_id": id})
-    return product
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": f"Internal server error.\n{e}"},
+        )
 
 
 def delete_all_products_from_store(store_name):
-    url_collection = get_collection("products")
-    url_collection.delete_many({"store": store_name})
-    return {"message": f"All products from {store_name} deleted successfully"}
+    try:
+        if not _verif_store_name(store_name):
+            raise ProductException(
+                status_code=status.HTTP_412_PRECONDITION_FAILED,
+                message="Invalid store name, please insert insert Pcdiga or Amazon!",
+            )
+        product_collection = get_collection("products")
+        result = product_collection.delete_many({"store": store_name})
+        if result.deleted_count > 0:
+            return JSONResponse(
+                content={
+                    "message": f"All products from {store_name} deleted successfully"
+                },
+                status_code=status.HTTP_202_ACCEPTED,
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"message": "Internal error deleting the product"},
+            )
+    except ProductException as e:
+        raise e
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": f"Internal server error.\n{e}"},
+        )
+
+
+def update_product(product: ProdcutUpdate, product_uuid: str):
+    try:
+        product_collection = get_collection("products")
+        if not _check_if_product_exists(product_uuid):
+            raise ProductException(
+                status_code=status.HTTP_412_PRECONDITION_FAILED,
+                message="ProductUuid not valid! Product not found!",
+            )
+        if product.store and not _verif_store_name(product.store):
+            raise ProductException(
+                status_code=status.HTTP_412_PRECONDITION_FAILED,
+                message="Invalid store name, please insert insert Pcdiga or Amazon!",
+            )
+        if product.url and not _validate_url(product.url):
+            raise ProductException(
+                status_code=status.HTTP_409_CONFLICT, message="Invalid Url!"
+            )
+
+        product_to_update = ProductDTO(**_get_product_by_uuid(product_uuid))
+
+        updated_product = {
+            "product_name": product.product_name
+            if product.product_name
+            else product_to_update.product_name,
+            "url": product.url if product.url else product_to_update.url,
+            "store": product.store if product.store else product_to_update.store,
+        }
+
+        product_collection.update_one({"uuid": product_uuid}, {"$set": updated_product})
+
+        updated_product = _get_product_by_uuid(product_uuid)
+
+        return JSONResponse(
+            content=ProductDTO(**_get_product_by_uuid(product_uuid)).to_dict(),
+            status_code=status.HTTP_201_CREATED,
+        )
+
+    except ProductException as e:
+        raise e
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"message": f"Internal server error.\n{e}"},
+        )

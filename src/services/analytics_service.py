@@ -2,7 +2,7 @@ from pprint import pprint
 from models.analytics_model import AnalyticsDTO, AnalyticsRecords, PriceDTO
 from models.product_model import SearchProduct
 from services.database_service import get_collection
-from services.product_service import get_products
+from utils.helpers import get_products as _get_products
 from utils.helpers import get_analytics_by_product_uuid, get_records_from_search, organize_amazon_search
 
 
@@ -23,7 +23,7 @@ def get_records_from_search_amazon(store, searched_item: str):
         records = []
         
         searched_items = get_records_from_search(store, searched_item) # get the items from the search that i want
-        products = get_products("amazon") # get the all the products from amazon
+        products = _get_products("amazon") # get the all the products from amazon
         
         #check all the products from amazon that were found in that search
         matched_products_uuids = {item["uuid"]: item["title"] for item in searched_items if any(item["uuid"] == product.uuid for product in products)}

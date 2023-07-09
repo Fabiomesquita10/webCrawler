@@ -3,6 +3,8 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 
+from models.analytics_model import Price
+
 load_dotenv()
 
 url = os.getenv("DISCORD_URL")
@@ -26,13 +28,11 @@ def send_message(message_content: str, tag: bool = False, date: bool = True) -> 
         print("An error occurred during the request:", e)
         return False
 
-def message_builder(scraped_data: list):
+def message_builder(product_name: str, url: str, prices: Price):
     message = ""
-    for index, item in enumerate(scraped_data):
-        message += f"# {item['product_name']}\n"
-        message += f"Product url: {item['url']}\n"
-        message += f"## Prices recorded: \n"
-        message += f"{item['prices'].to_str()}\n"
-        
+    message += f"# {product_name}\n"
+    message += f"Product url: {url}\n"
+    message += f"## Prices recorded: \n"
+    message += f"{prices.to_str()}\n"
     return message
 

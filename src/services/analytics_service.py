@@ -1,9 +1,17 @@
 from pprint import pprint
 from models.analytics_model import AnalyticsDTO, AnalyticsRecords, PriceDTO
+from models.cart_model import Cart
 from models.product_model import SearchProduct
 from services.database_service import get_collection
-from utils.helpers import get_products as _get_products
-from utils.helpers import get_analytics_by_product_uuid, get_records_from_search, organize_amazon_search
+from utils.helpers import (
+    get_cart_by_uuid,
+    get_product_name_by_uuid as _get_product_name_by_uuid,
+    get_products as _get_products,
+)
+from utils.helpers import (
+    get_analytics_by_product_uuid,
+    get_records_from_search,
+)
 
 
 def get_all_records_from_search(searched_item: str, store: str):
@@ -21,20 +29,31 @@ def get_all_records_from_search(searched_item: str, store: str):
 def get_records_from_search_amazon(store, searched_item: str):
     try:
         records = []
-        
-        searched_items = get_records_from_search(store, searched_item) # get the items from the search that i want
-        products = _get_products("amazon") # get the all the products from amazon
-        
-        #check all the products from amazon that were found in that search
-        matched_products_uuids = {item["uuid"]: item["title"] for item in searched_items if any(item["uuid"] == product.uuid for product in products)}
-        
-        # get all the analyzed products 
+
+        searched_items = get_records_from_search(
+            store, searched_item
+        )  # get the items from the search that i want
+        products = _get_products("amazon")  # get the all the products from amazon
+
+        # check all the products from amazon that were found in that search
+        matched_products_uuids = {
+            item["uuid"]: item["title"]
+            for item in searched_items
+            if any(item["uuid"] == product.uuid for product in products)
+        }
+
+        # get all the analyzed products
         analytics_collection = get_collection("analytics")
         for product_uuid, product_name in matched_products_uuids.items():
             analytics_data = analytics_collection.find({"product_id": product_uuid})
-            records.append(AnalyticsRecords(product_name=product_name, records=[AnalyticsDTO(**analytics) for analytics in analytics_data]).to_dict())
-        
-        return records   
+            records.append(
+                AnalyticsRecords(
+                    product_name=product_name,
+                    records=[AnalyticsDTO(**analytics) for analytics in analytics_data],
+                ).to_dict()
+            )
+
+        return records
     except Exception as e:
         raise e
 
@@ -52,3 +71,20 @@ def get_product_analytics(product_uuid: str):
         AnalyticsDTO(**product).to_dict()
         for product in get_analytics_by_product_uuid(product_uuid)
     ]
+
+
+def get_product_analytics_by_cart(cart_uuid: str):
+    try:
+        products = Cart(**get_cart_by_uuid(cart_uuid)).get_all_products_uuids()
+        products_analytics = []
+        for product in products:
+            for store, product_uuid in product.items():
+                products_analytics.append(
+                    AnalyticsRecords(
+                        product_name=_get_product_name_by_uuid(product_uuid),
+                        records=get_product_analytics(product_uuid),
+                    ).to_dict()
+                )
+        return products_analytics
+    except Exception as e:
+        raise e

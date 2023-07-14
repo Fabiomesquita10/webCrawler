@@ -66,9 +66,9 @@ def save_search(scrapped_data: dict):
         product = get_product_by_url(data["url"])
         new_data = {
             "product_id": product["uuid"],
-            "new_price": data["prices"].newPrice,
-            "old_price": data["prices"].oldPrice,
-            "discount": data["prices"].discount,
+            "new_price": data["prices"].newPrice if data["prices"] else None,
+            "old_price": data["prices"].oldPrice if data["prices"] else None,
+            "discount": data["prices"].discount if data["prices"] else None,
             "promotion_initial_date": data["promotion_data"][0]
             if data["promotion_data"] is not None
             else None,
@@ -115,6 +115,12 @@ def get_product_by_uuid(product_uuid: str):
     product = url_collection.find_one({"uuid": product_uuid})
     product["image"] = get_image_by_product_uuid(product["uuid"])
     return product
+
+def get_product_name_by_uuid(product_uuid: str):
+    url_collection = get_collection("products")
+    product = url_collection.find_one({"uuid": product_uuid})
+    product["image"] = get_image_by_product_uuid(product["uuid"])
+    return product["product_name"]
 
 
 def get_product_by_id(id: str):
@@ -165,3 +171,8 @@ def verif_store_name(store: str) -> bool:
 def save_image(image_url: str, product_uuid: str):
     image_collection = get_collection("images")
     image_collection.insert_one({"image_url": image_url, "product_uuid": product_uuid})
+
+
+def get_cart_by_uuid(cart_uuid: str):
+    cart_collection = get_collection("carts")
+    return cart_collection.find_one({"uuid": cart_uuid})

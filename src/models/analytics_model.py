@@ -22,9 +22,9 @@ class PriceDTO(BaseModel):
 
 class AnalyticsDTO(BaseModel):
     product_id: str
-    new_price: float
-    old_price: float
-    discount: float
+    new_price: float | None
+    old_price: float | None
+    discount: float | None
 
     def to_dict(self):
         return {

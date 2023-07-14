@@ -1,4 +1,5 @@
 
+from fastapi.responses import RedirectResponse
 from controllers.analyticsController import analyticsRouter
 from controllers.productController import productRouter
 from controllers.userController import userRouter
@@ -15,6 +16,11 @@ app.include_router(userRouter)
 app.include_router(cartRouter)
 app.include_router(scraperRouter)
 app.include_router(notifierRouter)
+
+@app.get("/")
+async def docs():
+    response = RedirectResponse(url='/docs')
+    return response
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

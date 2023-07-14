@@ -60,7 +60,7 @@ def scraped_data(data):
         reviews = reviews_element.text.strip() if reviews_element else "N/A"
 
         image_element = data.find("img", class_="s-image")
-        url_image = image_element['src'] if image_element else 'N/A'
+        url_image = image_element["src"] if image_element else "N/A"
 
         return {
             "uuid": uuid,
@@ -125,20 +125,18 @@ def amazon_price_scraper(html_content: str):
 
         current_price = soup.find("span", class_="a-offscreen")
         current_price = (
-            current_price.get_text(strip=True).replace(".", "").replace(",", ".").strip("€")
+            current_price.get_text(strip=True)
+            .replace(".", "")
+            .replace(",", ".")
+            .strip("€")
         )
         current_price = float(current_price)
 
-        print(current_price)
-        
         old_price = soup.select_one("span.a-price.a-text-price span.a-offscreen")
         old_price = old_price.get_text(strip=True) if old_price else current_price
         if type(old_price) != float:
             old_price = old_price.replace(".", "").replace(",", ".").strip("€")
             old_price = float(old_price)
-
-        print(old_price)
-
 
         discount = old_price - current_price
 

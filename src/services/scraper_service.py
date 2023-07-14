@@ -1,9 +1,11 @@
 from datetime import datetime
 from pprint import pprint
+from models.cart_model import Cart
 from models.product_model import ProductBody, SearchProduct
 from services.database_service import get_collection
 from utils.helpers import (
     check_if_product_exist_by_name as _check_if_product_exist_by_name,
+    get_cart_by_uuid as _get_cart_by_uuid,
     get_product_by_uuid as _get_product_by,
     save_image as _save_image,
     save_search as _save_search,
@@ -88,8 +90,8 @@ def scrap_amazon_urls():
 
     async def scrape_url(url_data):
         if url_data.store == "amazon":
-            page_content = await asyncio.to_thread(scrap_amazon_url, url_data.url)
-            prices = await asyncio.to_thread(amazon_price_scraper, page_content)
+            page_content = await asyncio.to_thread(_scrap_amazon_url, url_data.url)
+            prices = await asyncio.to_thread(_amazon_price_scraper, page_content)
             if prices != None:
                 scraped_data.append(
                     {
@@ -157,10 +159,34 @@ def scrap_amazon_product(product_uuid: str):
         page_content = _scrap_amazon_url(product["url"])
         prices = _amazon_price_scraper(page_content)
         data = {
-            "prices": prices,
+            "prices": prices if prices else None,
             "url": product["url"],
             "product_name": product["product_name"],
             "promotion_data": None,
         }
         _save_search([data])
     return
+
+
+def scrap_product_from_cart(cart_uuid: str):
+    tasks = []
+
+    async def scrap_cart_uuid(product_uuid: str, store: str):
+        if store == "amazon":
+            await asyncio.to_thread(scrap_amazon_product, product_uuid)
+        if store == "pcdiga":
+            await asyncio.to_thread(scrap_pcdiga_product, product_uuid)
+
+    async def run_tasks():
+        products = Cart(**_get_cart_by_uuid(cart_uuid)).get_all_products_uuids()
+        for product in products:
+            for store, product_uuid in product.items():
+                task = asyncio.ensure_future(
+                    scrap_cart_uuid(product_uuid=product_uuid, store=store)
+                )
+                tasks.append(task)
+        await asyncio.gather(*tasks)
+
+    asyncio.run(run_tasks())
+
+    return {"message": "Items scrapped!"}
